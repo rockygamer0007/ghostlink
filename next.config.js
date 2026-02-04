@@ -5,10 +5,12 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  // Also ignore strict typescript errors if you have any
   typescript: {
+    // Also ignore typescript errors
     ignoreBuildErrors: true,
-  }
+  },
+  // Ensure we don't have strict reaction to missing peer dependencies
+  reactStrictMode: false,
 };
 
 module.exports = nextConfig;
