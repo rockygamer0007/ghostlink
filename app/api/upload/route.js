@@ -6,7 +6,7 @@ export async function POST(request) {
   try {
     const { message, duration } = await request.json();
 
-    // 1. Encrypt Payload (This creates the secure link)
+    // 1. Encrypt
     const payload = {
         text: message,
         expiresAt: duration > 0 ? Date.now() + (duration * 60 * 1000) : null,
@@ -16,10 +16,10 @@ export async function POST(request) {
     const origin = new URL(request.url).origin;
     const finalLink = `${origin}/view/${encodeURIComponent(encryptedData)}`;
 
-    // 2. Blockchain "Heartbeat" Transaction (With Retry & Wait Logic)
+    // 2. Blockchain "Fire and Forget"
     let txHash = null;
     try {
-        console.log("🔄 Connecting to Shelby Chain (via Aptos SDK)...");
+        console.log("🚀 Firing transaction to Shelby...");
 
         const config = new AptosConfig({ 
             network: Network.CUSTOM, 
@@ -30,7 +30,6 @@ export async function POST(request) {
         const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
         const owner = Account.fromPrivateKey({ privateKey });
 
-        // Build a simple "Ping" transaction (Send 100 coins to self)
         const transaction = await aptos.transaction.build.simple({
             sender: owner.accountAddress,
             data: {
@@ -40,19 +39,15 @@ export async function POST(request) {
             },
         });
 
-        // Submit the transaction
+        // CHANGE: We get the hash IMMEDIATELY. We do not wait for the block to be mined.
         const committedTx = await aptos.signAndSubmitTransaction({ signer: owner, transaction });
-        console.log(`⏳ Transaction submitted: ${committedTx.hash}. Waiting for confirmation...`);
-
-        // FIX: Wait for the blockchain to confirm receipt before continuing
-        const executedTransaction = await aptos.waitForTransaction({ transactionHash: committedTx.hash });
         
-        txHash = executedTransaction.hash;
-        console.log("✅ BLOCKCHAIN SUCCESS! Hash:", txHash);
+        txHash = committedTx.hash; // <--- Grab hash instantly
+        console.log("✅ Hash captured:", txHash);
 
     } catch (e) {
-        console.error("⚠️ Blockchain Note:", e.message);
-        // If chain fails (e.g. network busy), we continue so the user still gets their link.
+        console.error("⚠️ Blockchain Error:", e.message);
+        // If it fails here, it likely means the Private Key is wrong in Vercel settings
     }
 
     // 3. Return Result
