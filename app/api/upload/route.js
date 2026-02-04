@@ -16,8 +16,7 @@ export async function POST(request) {
     const origin = new URL(request.url).origin;
     const finalLink = `${origin}/view/${encodeURIComponent(encryptedData)}`;
 
-    // 2. Blockchain "Heartbeat" Transaction
-    // We send a tiny self-transfer to generate a Real Tx Hash on ShelbyNet
+    // 2. Blockchain "Heartbeat" Transaction (With Retry & Wait Logic)
     let txHash = null;
     try {
         console.log("🔄 Connecting to Shelby Chain (via Aptos SDK)...");
@@ -31,25 +30,29 @@ export async function POST(request) {
         const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
         const owner = Account.fromPrivateKey({ privateKey });
 
-        // Build a simple "Ping" transaction (Send 0 coins to self)
-        // This proves the app is live and connected.
+        // Build a simple "Ping" transaction (Send 100 coins to self)
         const transaction = await aptos.transaction.build.simple({
             sender: owner.accountAddress,
             data: {
                 function: "0x1::coin::transfer",
                 typeArguments: ["0x1::aptos_coin::AptosCoin"],
-                functionArguments: [owner.accountAddress, 100], // Send tiny amount to self
+                functionArguments: [owner.accountAddress, 100], 
             },
         });
 
+        // Submit the transaction
         const committedTx = await aptos.signAndSubmitTransaction({ signer: owner, transaction });
-        txHash = committedTx.hash;
+        console.log(`⏳ Transaction submitted: ${committedTx.hash}. Waiting for confirmation...`);
+
+        // FIX: Wait for the blockchain to confirm receipt before continuing
+        const executedTransaction = await aptos.waitForTransaction({ transactionHash: committedTx.hash });
         
+        txHash = executedTransaction.hash;
         console.log("✅ BLOCKCHAIN SUCCESS! Hash:", txHash);
 
     } catch (e) {
         console.error("⚠️ Blockchain Note:", e.message);
-        // If chain fails, we still return the link
+        // If chain fails (e.g. network busy), we continue so the user still gets their link.
     }
 
     // 3. Return Result
