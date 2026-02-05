@@ -201,14 +201,19 @@ export default function Home() {
             </button>
 
             {txHash && (
-                <a 
-                    href={`https://explorer.shelby.xyz/shelbynet/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full py-3 border border-purple-500/50 text-purple-300 hover:bg-purple-900/20 font-bold rounded transition text-center"
-                >
-                    🔍 View on Shelby Explorer
-                </a>
+                <div className="mt-4">
+                    <p className="text-gray-500 text-[10px] mb-2 italic">
+                        *Blockchain update may take 10-20 seconds*
+                    </p>
+                    <a 
+                        href={`https://explorer.shelby.xyz/shelbynet/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full py-3 border border-purple-500/50 text-purple-300 hover:bg-purple-900/20 font-bold rounded transition text-center"
+                    >
+                        🔍 View on Shelby Explorer
+                    </a>
+                </div>
             )}
             
             <button 
