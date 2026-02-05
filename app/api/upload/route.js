@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
 import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
+// CHANGE IS HERE: Added "/node" to the end
+import { ShelbyClient } from "@shelby-protocol/sdk/node"; 
 
 export async function POST(request) {
+  // ... (Keep the rest of your code exactly the same)
   try {
     const { message, duration } = await request.json();
 
