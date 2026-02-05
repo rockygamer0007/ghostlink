@@ -1,43 +1,44 @@
 import { decrypt } from '../../../utils/crypto';
 
-// This is a Server Component (No "use client")
-// It runs securely on the server, so it can access your Private Keys.
 export default async function ViewSecret({ params }) {
-  // 1. Unwrap params (Next.js 13+ standard)
-  const resolvedParams = await params; // Await required for newer Next.js versions
+  const resolvedParams = await params;
   const cid = resolvedParams.id;
   
-  let decryptedMessage = null;
+  let decryptedData = null;
   let error = null;
   let isBurned = false;
+  let fileType = 'text'; // text, image, video, audio, pdf, other
 
   try {
-    console.log("🔍 Server Fetching IPFS CID:", cid);
-
-    // 2. Fetch from IPFS (Server-side fetch)
-    // We try the Pinata gateway first, then fallback
+    // 1. Fetch from IPFS
+    console.log("🔍 Server Fetching CID:", cid);
     let res = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`, { cache: 'no-store' });
     
     if (!res.ok) {
-        console.log("⚠️ Pinata slow, trying fallback...");
         res = await fetch(`https://ipfs.io/ipfs/${cid}`, { cache: 'no-store' });
     }
 
-    if (!res.ok) throw new Error("File not found on IPFS network");
+    if (!res.ok) throw new Error("File not found on IPFS");
 
-    // 3. Get Text & Clean it
     const encryptedText = (await res.text()).trim();
     
-    // 4. Decrypt (Now works because we are on the Server!)
+    // 2. Decrypt
     const jsonPayload = decrypt(encryptedText);
     const payload = JSON.parse(jsonPayload);
 
-    // 5. Check Expiry
+    // 3. Check Timer Expiry
     if (payload.expiresAt && Date.now() > payload.expiresAt) {
-        error = "🔥 This secret has expired and burned.";
+        error = "⏳ This secret has expired.";
         isBurned = true;
     } else {
-        decryptedMessage = payload.text;
+        decryptedData = payload.text;
+        
+        // 4. Detect File Type
+        if (decryptedData.startsWith('data:image/')) fileType = 'image';
+        else if (decryptedData.startsWith('data:video/')) fileType = 'video';
+        else if (decryptedData.startsWith('data:audio/')) fileType = 'audio';
+        else if (decryptedData.startsWith('data:application/pdf')) fileType = 'pdf';
+        else if (decryptedData.startsWith('data:')) fileType = 'other';
     }
 
   } catch (err) {
@@ -45,14 +46,53 @@ export default async function ViewSecret({ params }) {
     error = "❌ Invalid Key or Corrupted Data.";
   }
 
-  const isImage = (text) => text && text.startsWith("data:image");
+  // --- RENDERER COMPONENT ---
+  const renderContent = () => {
+    if (!decryptedData) return null;
 
-  // --- RENDER UI ---
+    if (fileType === 'image') {
+        return <img src={decryptedData} alt="Secret" className="max-w-full rounded shadow-lg mx-auto" />;
+    }
+    if (fileType === 'video') {
+        return (
+            <video controls className="w-full rounded shadow-lg">
+                <source src={decryptedData} />
+                Your browser does not support the video tag.
+            </video>
+        );
+    }
+    if (fileType === 'audio') {
+        return (
+            <audio controls className="w-full mt-4">
+                <source src={decryptedData} />
+                Your browser does not support the audio element.
+            </audio>
+        );
+    }
+    if (fileType === 'pdf' || fileType === 'other') {
+        return (
+            <div className="text-center">
+                <div className="text-6xl mb-4">📄</div>
+                <p className="mb-4 text-gray-400 text-sm">File type: {decryptedData.split(';')[0].split(':')[1]}</p>
+                <a 
+                    href={decryptedData} 
+                    download="secret-file"
+                    className="inline-block px-8 py-3 bg-blue-600 text-white font-bold rounded hover:bg-blue-500 transition"
+                >
+                    ⬇️ Download File
+                </a>
+            </div>
+        );
+    }
+    // Default: Text
+    return <div className="whitespace-pre-wrap break-words w-full text-gray-300 text-left">{decryptedData}</div>;
+  };
+
   if (error) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black text-red-500 font-mono p-4 text-center">
-            <div className="text-6xl mb-4">{isBurned ? '🔥' : '⚠️'}</div>
-            <h2 className="text-2xl font-bold mb-2">{isBurned ? 'Secret Burned' : 'Access Denied'}</h2>
+            <div className="text-6xl mb-4">{isBurned ? '⏳' : '⚠️'}</div>
+            <h2 className="text-2xl font-bold mb-2">{isBurned ? 'Expired' : 'Access Denied'}</h2>
             <p>{error}</p>
             <a href="/" className="mt-8 px-6 py-2 border border-gray-700 rounded text-gray-400 hover:text-white transition">
               Create New Secret
@@ -76,18 +116,12 @@ export default async function ViewSecret({ params }) {
         
         <h2 className="text-2xl text-white font-bold mb-4">Secret Decrypted</h2>
         
-        <div className="bg-black p-6 rounded border border-green-500/30 text-left overflow-auto max-h-[500px] flex justify-center">
-            {isImage(decryptedMessage) ? (
-                <img src={decryptedMessage} alt="Secret" className="max-w-full rounded shadow-lg" />
-            ) : (
-                <div className="whitespace-pre-wrap break-words w-full text-gray-300">
-                    {decryptedMessage}
-                </div>
-            )}
+        <div className="bg-black p-6 rounded border border-green-500/30 overflow-auto max-h-[600px] flex justify-center items-center">
+            {renderContent()}
         </div>
 
         <div className="mt-6 pt-4 border-t border-gray-800 flex justify-between items-center text-xs text-gray-500">
-            <span>📦 Fetched via Server-Side</span>
+            <span>📦 Storage: IPFS Hybrid</span>
             <span>🔒 Security: Verified</span>
         </div>
       </div>

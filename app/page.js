@@ -6,9 +6,8 @@ export default function Home() {
   const [file, setFile] = useState(null);
   
   // UI State
-  const [mode, setMode] = useState('text'); // 'text' or 'file'
-  const [timerMode, setTimerMode] = useState('burn'); // 'burn' or 'timer'
-  const [customMinutes, setCustomMinutes] = useState(10); // Default 10 mins if timer selected
+  const [mode, setMode] = useState('text'); 
+  const [customMinutes, setCustomMinutes] = useState(10); // Default 10 mins
 
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState(null);
@@ -17,8 +16,10 @@ export default function Home() {
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
-        if (selected.size > 5 * 1024 * 1024) {
-            alert("File is too big! Max 5MB.");
+        // Vercel Limit is 4.5MB. We set limit to 4MB to be safe.
+        if (selected.size > 4 * 1024 * 1024) {
+            alert("⚠️ File too large! Max 4MB for showcase.");
+            e.target.value = ""; // Reset input
             return;
         }
         setFile(selected);
@@ -44,16 +45,12 @@ export default function Home() {
             payloadContent = await convertFileToBase64(file);
         }
 
-        // Calculate Duration based on Mode
-        // If 'burn' mode, duration is 0. If 'timer' mode, use the input value.
-        const finalDuration = timerMode === 'burn' ? 0 : Number(customMinutes);
-
         const res = await fetch('/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 message: payloadContent, 
-                duration: finalDuration
+                duration: Number(customMinutes) // Always use timer
             }),
         });
 
@@ -67,14 +64,14 @@ export default function Home() {
 
     } catch (error) {
         console.error(error);
-        alert("System Error");
+        alert("Upload Failed: File might be too large.");
     }
     setLoading(false);
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(link);
-    alert("Copied to clipboard! 👻");
+    alert("Copied!");
   };
 
   return (
@@ -88,12 +85,10 @@ export default function Home() {
       </div>
 
       <div className="bg-gray-900 p-8 rounded-xl border border-gray-800 shadow-2xl max-w-md w-full relative overflow-hidden">
-        
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-purple-500 to-pink-500"></div>
 
         {!link ? (
           <>
-            {/* TABS (Text vs File) */}
             <div className="flex mb-6 border-b border-gray-700 pb-2">
                 <button 
                     onClick={() => setMode('text')}
@@ -109,7 +104,6 @@ export default function Home() {
                 </button>
             </div>
 
-            {/* INPUT AREA */}
             <div className="mb-6">
                 {mode === 'text' ? (
                     <textarea 
@@ -122,46 +116,28 @@ export default function Home() {
                     <div className="w-full h-32 border-2 border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-purple-500 hover:text-purple-400 transition cursor-pointer relative">
                         <input 
                             type="file" 
+                            accept="image/*,video/*,audio/*,.pdf"
                             onChange={handleFileChange}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
                         <span className="text-3xl mb-2">☁️</span>
-                        <span className="text-sm">{file ? file.name : "Click to Upload (Max 5MB)"}</span>
+                        <span className="text-sm">{file ? file.name : "Click to Upload (Max 4MB)"}</span>
                     </div>
                 )}
             </div>
 
-            {/* DESIGN RESTORED: Red/Blue Toggle Buttons */}
+            {/* SIMPLIFIED TIMER (Removed Burn Button) */}
             <div className="mb-6">
-                <div className="flex bg-gray-950 rounded p-1 border border-gray-800">
-                    <button
-                        onClick={() => setTimerMode('burn')}
-                        className={`flex-1 py-2 rounded text-sm font-bold transition flex items-center justify-center gap-2
-                            ${timerMode === 'burn' ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        🔥 Burn on Read
-                    </button>
-                    <button
-                        onClick={() => setTimerMode('timer')}
-                        className={`flex-1 py-2 rounded text-sm font-bold transition flex items-center justify-center gap-2
-                            ${timerMode === 'timer' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:text-gray-300'}`}
-                    >
-                        ⏳ Set Timer
-                    </button>
+                <label className="block text-gray-500 text-xs mb-2 uppercase tracking-wider">Self-Destruct Timer (Minutes)</label>
+                <div className="flex gap-2 items-center">
+                    <input 
+                        type="number" 
+                        value={customMinutes}
+                        onChange={(e) => setCustomMinutes(e.target.value)}
+                        className="flex-1 bg-black border border-gray-700 rounded p-3 text-white focus:border-blue-500 outline-none"
+                    />
+                    <span className="text-gray-500 text-sm">min</span>
                 </div>
-
-                {/* Conditional Input: Only shows if "Set Timer" is clicked */}
-                {timerMode === 'timer' && (
-                    <div className="mt-4 animate-fade-in flex gap-2 items-center">
-                        <input 
-                            type="number" 
-                            value={customMinutes}
-                            onChange={(e) => setCustomMinutes(e.target.value)}
-                            className="flex-1 bg-black border border-gray-700 rounded p-2 text-white text-center focus:border-blue-500 outline-none"
-                        />
-                        <span className="text-gray-500 text-sm">minutes</span>
-                    </div>
-                )}
             </div>
 
             <button 
@@ -180,14 +156,13 @@ export default function Home() {
             </button>
           </>
         ) : (
-          /* SUCCESS SCREEN */
           <div className="text-center animate-fade-in">
             <div className="w-16 h-16 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/50">
               <span className="text-2xl">🔒</span>
             </div>
             
             <h2 className="text-2xl font-bold text-green-400 mb-2">Secret Encrypted!</h2>
-            <p className="text-gray-400 text-sm mb-6">Your data is secured on the Shelby Network.</p>
+            <p className="text-gray-400 text-sm mb-6">Secured on IPFS & Shelby.</p>
             
             <div className="bg-black p-4 rounded border border-gray-700 break-all text-gray-400 text-xs mb-6 relative group">
                 {link}
@@ -197,39 +172,36 @@ export default function Home() {
               onClick={copyToClipboard}
               className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded mb-3 transition shadow-lg shadow-green-900/20"
             >
-              Copy GhostLink
+              Copy Link
             </button>
 
             {txHash && (
                 <div className="mt-4 space-y-2">
                     <p className="text-gray-500 text-[10px] mb-2 italic">
-                        *Proof anchored on Shelby Blockchain*
+                        *Anchored on Shelby Blockchain*
                     </p>
-                    
-                    {/* Link 1: Direct Transaction (Might 404 immediately) */}
                     <a 
                         href={`https://explorer.shelby.xyz/shelbynet/tx/${txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block w-full py-2 border border-purple-500/30 text-purple-300 hover:bg-purple-900/20 text-sm font-bold rounded transition text-center"
                     >
-                        🔍 View Transaction (Direct)
+                        🔍 View Transaction
                     </a>
-
-                    {/* Link 2: Account History (Safe Backup) */}
+                    {/* BACKUP ACCOUNT LINK */}
                     <a 
                         href={`https://explorer.shelby.xyz/shelbynet/account/0xc63d6a5efb0080a6029403131715bd4971e1149f7cc099aac69bb0069b3ddbf5`} 
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block w-full py-2 bg-purple-900/20 text-purple-400 text-xs rounded transition text-center hover:bg-purple-900/40"
+                        className="block w-full py-2 bg-purple-900/10 text-purple-400 text-xs rounded transition text-center hover:bg-purple-900/30"
                     >
-                        📂 View in Account History (Backup)
+                        📂 Account History (Backup)
                     </a>
                 </div>
             )}
             
             <button 
-              onClick={() => { setLink(null); setMessage(''); setFile(null); setTimerMode('burn'); }}
+              onClick={() => { setLink(null); setMessage(''); setFile(null); }}
               className="mt-6 text-gray-600 hover:text-gray-400 text-sm transition"
             >
               ← Create New Secret
