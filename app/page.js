@@ -201,17 +201,29 @@ export default function Home() {
             </button>
 
             {txHash && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-2">
                     <p className="text-gray-500 text-[10px] mb-2 italic">
-                        *Blockchain update may take 10-20 seconds*
+                        *Proof anchored on Shelby Blockchain*
                     </p>
+                    
+                    {/* Link 1: Direct Transaction (Might 404 immediately) */}
                     <a 
                         href={`https://explorer.shelby.xyz/shelbynet/tx/${txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block w-full py-3 border border-purple-500/50 text-purple-300 hover:bg-purple-900/20 font-bold rounded transition text-center"
+                        className="block w-full py-2 border border-purple-500/30 text-purple-300 hover:bg-purple-900/20 text-sm font-bold rounded transition text-center"
                     >
-                        🔍 View on Shelby Explorer
+                        🔍 View Transaction (Direct)
+                    </a>
+
+                    {/* Link 2: Account History (Safe Backup) */}
+                    <a 
+                        href={`https://explorer.shelby.xyz/shelbynet/account/0xc63d6a5efb0080a6029403131715bd4971e1149f7cc099aac69bb0069b3ddbf5`} 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full py-2 bg-purple-900/20 text-purple-400 text-xs rounded transition text-center hover:bg-purple-900/40"
+                    >
+                        📂 View in Account History (Backup)
                     </a>
                 </div>
             )}

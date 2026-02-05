@@ -1,93 +1,65 @@
-"use client";
-import { useState, useEffect } from 'react';
 import { decrypt } from '../../../utils/crypto';
 
-export default function ViewSecret({ params }) {
-  // 1. Unwrap params safely
-  const [cid, setCid] = useState(null);
+// This is a Server Component (No "use client")
+// It runs securely on the server, so it can access your Private Keys.
+export default async function ViewSecret({ params }) {
+  // 1. Unwrap params (Next.js 13+ standard)
+  const resolvedParams = await params; // Await required for newer Next.js versions
+  const cid = resolvedParams.id;
+  
+  let decryptedMessage = null;
+  let error = null;
+  let isBurned = false;
 
-  useEffect(() => {
-    // Handling params unwrapping for different Next.js versions
-    if (params && params.id) {
-        setCid(params.id);
-    } else if (params instanceof Promise) {
-        params.then(p => setCid(p.id));
-    }
-  }, [params]);
+  try {
+    console.log("🔍 Server Fetching IPFS CID:", cid);
 
-  const [decryptedMessage, setDecryptedMessage] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (!cid) return;
-
-    async function fetchSecret() {
-        try {
-            console.log("🔍 Fetching from IPFS:", cid);
-            
-            // Try Pinata Gateway first
-            let res = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`);
-            
-            // Fallback to public gateway if Pinata is slow
-            if (!res.ok) {
-                console.log("⚠️ Pinata slow, trying fallback...");
-                res = await fetch(`https://ipfs.io/ipfs/${cid}`);
-            }
-
-            if (!res.ok) throw new Error("File not found on IPFS network");
-
-            const encryptedText = await res.text();
-            
-            // Decrypt
-            try {
-                const jsonPayload = decrypt(encryptedText);
-                const payload = JSON.parse(jsonPayload);
-
-                // Check Expiry
-                if (payload.expiresAt && Date.now() > payload.expiresAt) {
-                    setError("❌ This secret has expired and burned.");
-                    setLoading(false);
-                    return;
-                }
-
-                setDecryptedMessage(payload.text);
-            } catch (cryptoError) {
-                console.error("Decryption failed:", cryptoError);
-                setError("❌ Invalid Key or Corrupted Data");
-            }
-
-            setLoading(false);
-
-        } catch (err) {
-            console.error(err);
-            setError("❌ Secret not found yet. It might be propagating through IPFS. Refresh in 10s.");
-            setLoading(false);
-        }
+    // 2. Fetch from IPFS (Server-side fetch)
+    // We try the Pinata gateway first, then fallback
+    let res = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`, { cache: 'no-store' });
+    
+    if (!res.ok) {
+        console.log("⚠️ Pinata slow, trying fallback...");
+        res = await fetch(`https://ipfs.io/ipfs/${cid}`, { cache: 'no-store' });
     }
 
-    fetchSecret();
-  }, [cid]);
+    if (!res.ok) throw new Error("File not found on IPFS network");
+
+    // 3. Get Text & Clean it
+    const encryptedText = (await res.text()).trim();
+    
+    // 4. Decrypt (Now works because we are on the Server!)
+    const jsonPayload = decrypt(encryptedText);
+    const payload = JSON.parse(jsonPayload);
+
+    // 5. Check Expiry
+    if (payload.expiresAt && Date.now() > payload.expiresAt) {
+        error = "🔥 This secret has expired and burned.";
+        isBurned = true;
+    } else {
+        decryptedMessage = payload.text;
+    }
+
+  } catch (err) {
+    console.error("View Error:", err);
+    error = "❌ Invalid Key or Corrupted Data.";
+  }
 
   const isImage = (text) => text && text.startsWith("data:image");
 
-  if (!cid || loading) return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-green-400 font-mono">
-          <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="animate-pulse">Searching the Decentralized Web...</p>
-      </div>
-  );
-
-  if (error) return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-red-500 font-mono p-4 text-center">
-          <h1 className="text-4xl mb-4">⚠️</h1>
-          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-          <p>{error}</p>
-          <button onClick={() => window.location.reload()} className="mt-8 px-6 py-2 border border-red-500 rounded hover:bg-red-900/20 transition">
-            🔄 Try Again
-          </button>
-      </div>
-  );
+  // --- RENDER UI ---
+  if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-red-500 font-mono p-4 text-center">
+            <div className="text-6xl mb-4">{isBurned ? '🔥' : '⚠️'}</div>
+            <h2 className="text-2xl font-bold mb-2">{isBurned ? 'Secret Burned' : 'Access Denied'}</h2>
+            <p>{error}</p>
+            <a href="/" className="mt-8 px-6 py-2 border border-gray-700 rounded text-gray-400 hover:text-white transition">
+              Create New Secret
+            </a>
+        </div>
+      );
+  }
 
   return (
     <div className="min-h-screen bg-black text-green-400 flex flex-col items-center justify-center p-4 font-mono">
@@ -115,8 +87,8 @@ export default function ViewSecret({ params }) {
         </div>
 
         <div className="mt-6 pt-4 border-t border-gray-800 flex justify-between items-center text-xs text-gray-500">
-            <span>📦 Storage: IPFS (Decentralized)</span>
-            <span>🔒 Security: AES-256</span>
+            <span>📦 Fetched via Server-Side</span>
+            <span>🔒 Security: Verified</span>
         </div>
       </div>
     </div>
