@@ -15,8 +15,8 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Setup Connection (THE FIX)
-    // We use Network.CUSTOM (The Object) not the string "custom"
+    // 2. Setup Connection (THE FIX IS HERE)
+    // We use the "Network" object, not a string
     const config = new AptosConfig({ 
         network: Network.CUSTOM, 
         fullnode: "https://api.shelbynet.shelby.xyz/v1" 
