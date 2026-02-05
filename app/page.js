@@ -1,166 +1,207 @@
-'use client';
+"use client";
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function Home() {
   const [message, setMessage] = useState('');
-  const [burnMode, setBurnMode] = useState('instant'); 
-  const [customMinutes, setCustomMinutes] = useState('10');
-  
-  const [link, setLink] = useState('');
-  const [txHash, setTxHash] = useState(''); // Stores the blockchain receipt
+  const [file, setFile] = useState(null);
+  const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [link, setLink] = useState(null);
+  const [txHash, setTxHash] = useState(null);
+  const [mode, setMode] = useState('text'); // 'text' or 'file'
 
-  const handleBurn = async () => {
-    if (!message) return;
-    setLoading(true);
-    setError('');
-    setLink('');
-    setTxHash('');
-
-    const finalDuration = burnMode === 'instant' ? 0 : Number(customMinutes);
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, duration: finalDuration }),
-      });
-
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      
-      setLink(data.link);
-      setTxHash(data.txHash); 
-    } catch (err) {
-      setError(err.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
+  const handleFileChange = (e) => {
+    const selected = e.target.files[0];
+    if (selected) {
+        // Limit file size to 5MB for now
+        if (selected.size > 5 * 1024 * 1024) {
+            alert("File is too big! Max 5MB.");
+            return;
+        }
+        setFile(selected);
     }
   };
 
-  return (
-    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full text-center">
-        
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
-          GhostLink
-        </h1>
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+  };
 
-        <div className="flex justify-center mb-8">
-            <div className="px-3 py-1 rounded-full bg-purple-900/30 border border-purple-500/30 flex items-center gap-2 backdrop-blur-sm">
-                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
-                <span className="text-[10px] font-mono text-purple-300 tracking-wider">
-                    POWERED BY SHELBY
-                </span>
-            </div>
-        </div>
+  const createGhostLink = async () => {
+    if (!message && !file) return;
+    setLoading(true);
+
+    try {
+        let payloadContent = message;
+
+        // If File Mode, convert file to text (Base64)
+        if (mode === 'file' && file) {
+            payloadContent = await convertFileToBase64(file);
+        }
+
+        const res = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                message: payloadContent, // We send the file as a text string!
+                duration 
+            }),
+        });
+
+        const data = await res.json();
+        if (data.link) {
+            setLink(data.link);
+            setTxHash(data.txHash);
+        } else {
+            alert("Error: " + JSON.stringify(data));
+        }
+
+    } catch (error) {
+        console.error(error);
+        alert("System Error");
+    }
+    setLoading(false);
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(link);
+    alert("Copied to clipboard! 👻");
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-green-400 flex flex-col items-center justify-center p-4 font-mono">
+      
+      {/* HEADER */}
+      <h1 className="text-6xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-pulse">
+        GhostLink
+      </h1>
+      <div className="mb-8 px-4 py-1 rounded-full bg-purple-900/30 border border-purple-500/50 text-xs text-purple-300 tracking-widest uppercase">
+        ● Powered by Shelby
+      </div>
+
+      {/* MAIN CARD */}
+      <div className="bg-gray-900 p-8 rounded-xl border border-gray-800 shadow-2xl max-w-md w-full relative overflow-hidden group">
+        
+        {/* Glow Effect */}
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-purple-500 to-pink-500"></div>
 
         {!link ? (
-          <div className="flex flex-col gap-4">
-            <textarea
-              className="w-full bg-gray-900 border border-gray-800 rounded-lg p-4 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500 transition-colors min-h-[120px]"
-              placeholder="Write your secret here..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-
-            <div className="grid grid-cols-2 gap-2 bg-gray-900 p-1 rounded-lg border border-gray-800">
+          <>
+            {/* TABS */}
+            <div className="flex mb-6 border-b border-gray-700 pb-2">
                 <button 
-                    onClick={() => setBurnMode('instant')}
-                    className={`py-2 rounded-md text-sm font-bold transition-all ${
-                        burnMode === 'instant' 
-                        ? 'bg-red-500 text-white shadow-lg' 
-                        : 'text-gray-500 hover:text-white'
-                    }`}
+                    onClick={() => setMode('text')}
+                    className={`flex-1 pb-2 text-center transition ${mode === 'text' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-500 hover:text-gray-300'}`}
                 >
-                    🔥 Burn on Read
+                    📝 Text
                 </button>
                 <button 
-                    onClick={() => setBurnMode('timer')}
-                    className={`py-2 rounded-md text-sm font-bold transition-all ${
-                        burnMode === 'timer' 
-                        ? 'bg-purple-600 text-white shadow-lg' 
-                        : 'text-gray-500 hover:text-white'
-                    }`}
+                    onClick={() => setMode('file')}
+                    className={`flex-1 pb-2 text-center transition ${mode === 'file' ? 'text-purple-400 border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}
                 >
-                    ⏳ Set Timer
+                    📂 File
                 </button>
             </div>
 
-            {burnMode === 'timer' && (
-                <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg p-3 animate-fade-in">
-                    <span className="text-gray-400 text-sm">Self-destruct in:</span>
-                    <input 
-                        type="number" 
-                        min="1"
-                        value={customMinutes}
-                        onChange={(e) => setCustomMinutes(e.target.value)}
-                        className="bg-black border border-gray-700 rounded px-2 py-1 text-white w-20 text-center focus:border-purple-500 outline-none"
+            {/* INPUT AREA */}
+            <div className="mb-6">
+                {mode === 'text' ? (
+                    <textarea 
+                        className="w-full h-32 bg-black border border-gray-700 rounded p-4 text-green-400 focus:outline-none focus:border-green-500 transition resize-none"
+                        placeholder="Write your secret here..."
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
                     />
-                    <span className="text-gray-400 text-sm">minutes</span>
-                </div>
-            )}
+                ) : (
+                    <div className="w-full h-32 border-2 border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-purple-500 hover:text-purple-400 transition cursor-pointer relative">
+                        <input 
+                            type="file" 
+                            onChange={handleFileChange}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <span className="text-3xl mb-2">☁️</span>
+                        <span className="text-sm">{file ? file.name : "Click to Upload (Max 5MB)"}</span>
+                    </div>
+                )}
+            </div>
 
-            <button
-              onClick={handleBurn}
-              disabled={loading || !message}
-              className={`w-full py-4 rounded-lg font-bold text-lg transition-all mt-2 ${
-                loading || !message
-                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                  : burnMode === 'instant'
-                    ? 'bg-white text-red-600 hover:bg-gray-200'
-                    : 'bg-white text-purple-600 hover:bg-gray-200'
-              }`}
+            {/* OPTIONS */}
+            <div className="mb-6">
+              <label className="block text-gray-500 text-xs mb-2 uppercase tracking-wider">Self-Destruct Timer</label>
+              <select 
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className="w-full bg-black border border-gray-700 rounded p-2 text-white focus:border-green-500 outline-none"
+              >
+                <option value={0}>🔥 Burn immediately after reading</option>
+                <option value={10}>⏳ 10 Minutes</option>
+                <option value={60}>🕐 1 Hour</option>
+                <option value={1440}>📅 1 Day</option>
+              </select>
+            </div>
+
+            {/* ACTION BUTTON */}
+            <button 
+              onClick={createGhostLink}
+              disabled={loading || (!message && !file)}
+              className={`w-full py-4 rounded font-bold text-black transition transform hover:scale-[1.02] active:scale-95
+                ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-green-400 to-emerald-600 hover:shadow-[0_0_20px_rgba(52,211,153,0.5)]'}
+              `}
             >
-              {loading ? 'Encrypting...' : 'Encrypt & Burn'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                  Encrypting & Uploading...
+                </span>
+              ) : "Create GhostLink"}
+            </button>
+          </>
+        ) : (
+          /* SUCCESS SCREEN */
+          <div className="text-center animate-fade-in">
+            <div className="w-16 h-16 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/50">
+              <span className="text-2xl">🔒</span>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-green-400 mb-2">Secret Encrypted!</h2>
+            <p className="text-gray-400 text-sm mb-6">Your data is secured on the Shelby Network.</p>
+            
+            <div className="bg-black p-4 rounded border border-gray-700 break-all text-gray-400 text-xs mb-6 relative group">
+                {link}
+            </div>
+
+            <button 
+              onClick={copyToClipboard}
+              className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded mb-3 transition shadow-lg shadow-green-900/20"
+            >
+              Copy GhostLink
             </button>
 
-            {error && <div className="text-red-400 text-sm">{error}</div>}
-          </div>
-        ) : (
-          <div className="bg-gray-900 border border-green-900 rounded-xl p-6 animate-fade-in">
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-green-500/20 flex items-center justify-center text-2xl">
-                🔒
-              </div>
-              <h3 className="text-xl font-bold text-green-400">Secret Encrypted!</h3>
-              
-              <div className="w-full bg-black p-3 rounded border border-gray-800 break-all text-sm text-gray-400 font-mono">
-                {link}
-              </div>
-
-              <div className="flex flex-col gap-3 w-full">
-                <button
-                  onClick={() => navigator.clipboard.writeText(link)}
-                  className="w-full bg-green-600 hover:bg-green-500 text-white py-3 rounded-lg font-bold transition-all"
+            {txHash && (
+                <a 
+                    href={`https://explorer.shelby.xyz/shelbynet/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full py-3 border border-purple-500/50 text-purple-300 hover:bg-purple-900/20 font-bold rounded transition text-center flex items-center justify-center gap-2"
                 >
-                  Copy GhostLink
-                </button>
-
-                {/* THE CORRECTED EXPLORER BUTTON */}
-                {txHash && (
-                    <a 
-                      href={`https://explorer.aptoslabs.com/txn/${txHash}/userTxnOverview?network=shelbynet`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full border border-purple-500/50 hover:bg-purple-500/10 text-purple-400 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
-                    >
-                      🔍 View on Shelby Explorer
-                    </a>
-                )}
-
-                <button
-                  onClick={() => { setLink(''); setMessage(''); setTxHash(''); }}
-                  className="w-full text-xs text-gray-600 hover:text-white py-2 transition-colors mt-2"
-                >
-                  ← Create New Secret
-                </button>
-              </div>
-            </div>
+                    🔍 View on Shelby Explorer
+                </a>
+            )}
+            
+            <button 
+              onClick={() => { setLink(null); setMessage(''); setFile(null); }}
+              className="mt-6 text-gray-600 hover:text-gray-400 text-sm transition"
+            >
+              ← Create New Secret
+            </button>
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
