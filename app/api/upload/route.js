@@ -16,11 +16,11 @@ export async function POST(request) {
     const origin = new URL(request.url).origin;
     const finalLink = `${origin}/view/${encodeURIComponent(encryptedData)}`;
 
-    // 2. Blockchain "Fire and Forget"
+    // 2. Blockchain
     let txHash = null;
-    try {
-        console.log("🚀 Firing transaction to Shelby...");
+    let debugInfo = "";
 
+    try {
         const config = new AptosConfig({ 
             network: Network.CUSTOM, 
             fullnode: "https://api.shelbynet.shelby.xyz/v1" 
@@ -29,6 +29,11 @@ export async function POST(request) {
         
         const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
         const owner = Account.fromPrivateKey({ privateKey });
+
+        // --- THE TRUTH DETECTOR ---
+        const address = owner.accountAddress.toString();
+        console.log("🕵️ VERCEL IS USING WALLET:", address); 
+        // --------------------------
 
         const transaction = await aptos.transaction.build.simple({
             sender: owner.accountAddress,
@@ -39,25 +44,23 @@ export async function POST(request) {
             },
         });
 
-        // CHANGE: We get the hash IMMEDIATELY. We do not wait for the block to be mined.
         const committedTx = await aptos.signAndSubmitTransaction({ signer: owner, transaction });
-        
-        txHash = committedTx.hash; // <--- Grab hash instantly
-        console.log("✅ Hash captured:", txHash);
+        txHash = committedTx.hash;
+        console.log("✅ Success:", txHash);
 
     } catch (e) {
         console.error("⚠️ Blockchain Error:", e.message);
-        // If it fails here, it likely means the Private Key is wrong in Vercel settings
+        debugInfo = e.message;
     }
 
     // 3. Return Result
     return NextResponse.json({ 
         link: finalLink, 
-        txHash: txHash 
+        txHash: txHash,
+        debug_error: debugInfo
     });
 
   } catch (error) {
-    console.error("Critical Error:", error);
     return NextResponse.json({ error: "System Error" }, { status: 500 });
   }
 }
