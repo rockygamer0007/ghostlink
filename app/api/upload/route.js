@@ -1,4 +1,4 @@
-// FORCE UPDATE: Trojan Horse Fix
+// FORCE UPDATE: Trojan Horse Fix 2.0 (TESTNET)
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
 import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
@@ -16,11 +16,12 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Setup Connection (THE TRICK)
-    // We say "DEVNET" to pass validation, but we override the URL to Shelby.
+    // 2. Setup Connection (THE FIX)
+    // We use Network.TESTNET because the SDK likely has a whitelist.
+    // We override the URL to point to Shelby.
     const config = new AptosConfig({ 
-        network: Network.DEVNET, // <--- The Lie (Satisfies the SDK)
-        fullnode: "https://api.shelbynet.shelby.xyz/v1" // <--- The Truth (Connects to Shelby)
+        network: Network.TESTNET, 
+        fullnode: "https://api.shelbynet.shelby.xyz/v1" 
     });
     
     const aptos = new Aptos(config); 
