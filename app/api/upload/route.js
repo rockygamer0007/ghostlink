@@ -1,4 +1,4 @@
-// FORCE UPDATE: Fix Network Crash
+// FORCE UPDATE: Trojan Horse Fix
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
 import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
@@ -16,11 +16,11 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Setup Connection
-    // CRITICAL FIX: We use Network.CUSTOM (the object), NOT the string "custom"
+    // 2. Setup Connection (THE TRICK)
+    // We say "DEVNET" to pass validation, but we override the URL to Shelby.
     const config = new AptosConfig({ 
-        network: Network.CUSTOM, 
-        fullnode: "https://api.shelbynet.shelby.xyz/v1" 
+        network: Network.DEVNET, // <--- The Lie (Satisfies the SDK)
+        fullnode: "https://api.shelbynet.shelby.xyz/v1" // <--- The Truth (Connects to Shelby)
     });
     
     const aptos = new Aptos(config); 
@@ -40,11 +40,9 @@ export async function POST(request) {
 
     console.log("⏳ Waiting for confirmation... Tx:", blobTx.hash);
 
-    // Wait for the blockchain to finish
     await aptos.waitForTransaction({ transactionHash: blobTx.hash });
     console.log("✅ Confirmed!");
 
-    // 4. Create Link
     const origin = new URL(request.url).origin;
     const finalLink = `${origin}/view/${blobTx.blobId}`;
 
