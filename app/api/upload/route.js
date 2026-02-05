@@ -1,4 +1,4 @@
-// FORCE UPDATE: Explicit Indexer Config
+// FORCE UPDATE: Double Indexer Config
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
 import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
@@ -16,11 +16,13 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Define Network Settings
+    console.log("🚀 Starting Upload Process...");
+
+    // 2. Define Network Settings (Including Indexer!)
     const networkSettings = { 
         network: Network.CUSTOM, 
         fullnode: "https://api.shelbynet.shelby.xyz/v1",
-        indexer: "https://api.shelbynet.shelby.xyz/v1/graphql"
+        indexer: "https://api.shelbynet.shelby.xyz/v1/graphql" // <--- For Aptos SDK
     };
 
     // 3. Setup Aptos Connection (For waiting)
@@ -30,17 +32,16 @@ export async function POST(request) {
     const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
     const owner = Account.fromPrivateKey({ privateKey });
 
-    console.log("🚀 Uploading Blob to Shelby...");
-
     // 4. Upload to Shelby (THE FIX)
-    // We provide the "aptos" config AND the "indexer" config explicitly
+    // We pass the "aptos" config AND the explicit "indexer" object
     const client = new ShelbyClient({ 
         aptos: networkSettings,
         indexer: {
-            endpoint: "https://api.shelbynet.shelby.xyz/v1/graphql"
+            endpoint: "https://api.shelbynet.shelby.xyz/v1/graphql" // <--- For Shelby SDK
         }
     });
     
+    console.log("📤 Sending Blob to Shelby...");
     const blobTx = await client.upload({
         blobData: Buffer.from(encryptedData),
         signer: owner,
@@ -51,7 +52,7 @@ export async function POST(request) {
     console.log("⏳ Waiting for confirmation... Tx:", blobTx.hash);
 
     await aptos.waitForTransaction({ transactionHash: blobTx.hash });
-    console.log("✅ Confirmed!");
+    console.log("✅ Confirmed on Blockchain!");
 
     const origin = new URL(request.url).origin;
     const finalLink = `${origin}/view/${blobTx.blobId}`;
