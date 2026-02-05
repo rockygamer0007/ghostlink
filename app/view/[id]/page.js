@@ -1,8 +1,12 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { decrypt } from '../../../utils/crypto';
 
 export default function ViewSecret({ params }) {
+  // Unwrap params (Next.js 13+ requirement)
+  const resolvedParams = use(params);
+  const cid = resolvedParams.id;
+
   const [decryptedMessage, setDecryptedMessage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -10,10 +14,9 @@ export default function ViewSecret({ params }) {
   useEffect(() => {
     async function fetchSecret() {
         try {
-            const cid = params.id;
             console.log("🔍 Fetching from IPFS:", cid);
 
-            // Fetch from a public IPFS Gateway
+            // Fetch from Public IPFS Gateway
             const res = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`);
             
             if (!res.ok) throw new Error("File not found on IPFS");
@@ -41,12 +44,12 @@ export default function ViewSecret({ params }) {
         }
     }
 
-    if (params.id) fetchSecret();
-  }, [params.id]);
+    if (cid) fetchSecret();
+  }, [cid]);
 
   const isImage = (text) => text && text.startsWith("data:image");
 
-  if (loading) return <div className="text-white text-center mt-20 font-mono animate-pulse">🔓 Retrieving from IPFS...</div>;
+  if (loading) return <div className="text-white text-center mt-20 font-mono animate-pulse">🔓 Retrieving Secure Data...</div>;
   if (error) return <div className="text-red-500 text-center mt-20 font-bold text-2xl font-mono">{error}</div>;
 
   return (
@@ -75,7 +78,7 @@ export default function ViewSecret({ params }) {
         </div>
 
         <p className="mt-6 text-gray-500 text-sm">
-            This data was retrieved securely from IPFS.
+            Data secured via Hybrid IPFS + Shelby Protocol.
         </p>
       </div>
     </div>

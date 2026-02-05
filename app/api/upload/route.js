@@ -1,7 +1,7 @@
 // HYBRID MODE: IPFS Storage + Shelby Blockchain Anchor
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
-import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey, AptosApiError } from "@aptos-labs/ts-sdk";
+import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
 
 export async function POST(request) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request) {
     const encryptedData = encrypt(JSON.stringify(payload));
 
     // 2. Upload to IPFS (Pinata)
-    // We use IPFS for the heavy lifting to avoid Shelby "Blob" errors
+    // We use IPFS for the heavy lifting. It's reliable.
     const formData = new FormData();
     const blob = new Blob([encryptedData], { type: "text/plain" });
     formData.append("file", blob, "secret.ghost");
@@ -35,20 +35,20 @@ export async function POST(request) {
     const cid = ipfsData.IpfsHash;
     console.log("✅ IPFS CID:", cid);
 
-    // 3. Anchor on Shelby Blockchain
-    // We send a transaction that saves the CID on-chain.
+    // 3. Anchor on Shelby Blockchain (The Showcase Part)
     console.log("⛓️ Anchoring to Shelby...");
     
+    // We connect to Shelby using the standard Aptos SDK (No "Indexer" errors!)
     const config = new AptosConfig({ 
         network: Network.CUSTOM, 
-        fullnode: "https://api.shelbynet.shelby.xyz/v1", // Public Node
+        fullnode: "https://api.shelbynet.shelby.xyz/v1",
     });
     const aptos = new Aptos(config);
     const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
     const owner = Account.fromPrivateKey({ privateKey });
 
-    // We send a "Self-Transfer" of 0 coins, but we attach the CID as a message.
-    // This creates a permanent record on the blockchain.
+    // We send a "0 Coin Transfer" to ourselves. 
+    // This creates a REAL transaction hash on the network.
     const transaction = await aptos.transaction.build.simple({
         sender: owner.accountAddress,
         data: {
@@ -61,16 +61,18 @@ export async function POST(request) {
     const pendingTx = await aptos.signAndSubmitTransaction({ signer: owner, transaction });
     console.log("⏳ Waiting for Shelby Anchor...", pendingTx.hash);
 
+    // Wait for it to be confirmed so the Explorer link works immediately
     await aptos.waitForTransaction({ transactionHash: pendingTx.hash });
     console.log("✅ Anchored on Shelby!");
 
     // 4. Return Links
     const origin = new URL(request.url).origin;
+    // We use the CID for the view link, but return the Hash for the explorer
     const finalLink = `${origin}/view/${cid}`;
 
     return NextResponse.json({ 
         link: finalLink, 
-        txHash: pendingTx.hash // REAL Shelby Transaction Hash
+        txHash: pendingTx.hash 
     });
 
   } catch (error) {
