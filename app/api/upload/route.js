@@ -1,4 +1,4 @@
-// FORCE UPDATE: Trojan Horse Fix 2.0 (TESTNET)
+// FORCE UPDATE: The "Wrapper" Fix
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
 import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
@@ -16,22 +16,26 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Setup Connection (THE FIX)
-    // We use Network.TESTNET because the SDK likely has a whitelist.
-    // We override the URL to point to Shelby.
-    const config = new AptosConfig({ 
-        network: Network.TESTNET, 
+    // 2. Define the Raw Settings
+    const networkSettings = { 
+        network: Network.CUSTOM, 
         fullnode: "https://api.shelbynet.shelby.xyz/v1" 
-    });
-    
+    };
+
+    // 3. Setup Connections
+    // Standard Client (for us to wait)
+    const config = new AptosConfig(networkSettings);
     const aptos = new Aptos(config); 
+    
     const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
     const owner = Account.fromPrivateKey({ privateKey });
 
     console.log("🚀 Uploading Blob to Shelby...");
 
-    // 3. Upload to Shelby
-    const client = new ShelbyClient(config);
+    // 4. Upload to Shelby (THE FIX)
+    // We wrap the settings in an "aptos" object to trigger the bypass we found!
+    const client = new ShelbyClient({ aptos: networkSettings });
+    
     const blobTx = await client.upload({
         blobData: Buffer.from(encryptedData),
         signer: owner,
