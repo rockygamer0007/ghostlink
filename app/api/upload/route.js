@@ -1,16 +1,11 @@
-// FORCE UPDATE: God Mode (Local Bypass)
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
-import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
-import { ShelbyClient } from "@shelby-protocol/sdk/node"; 
 
 export async function POST(request) {
   try {
     const { message, duration } = await request.json();
 
-    console.log("🚀 Starting Upload (God Mode)...");
-
-    // 1. Encrypt
+    // 1. Encrypt the data
     const payload = {
         text: message,
         expiresAt: duration > 0 ? Date.now() + (duration * 60 * 1000) : null,
@@ -18,51 +13,37 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
-    const owner = Account.fromPrivateKey({ privateKey });
+    // 2. Prepare for IPFS (Pinata)
+    const formData = new FormData();
+    // We create a "File" from our encrypted string
+    const blob = new Blob([encryptedData], { type: "text/plain" });
+    formData.append("file", blob, "secret.ghost");
 
-    // 2. Define Network Settings
-    // TRICK: We use "local" to disable validation checks.
-    // BUT we override the URLs to point to the real Shelby network.
-    const networkSettings = { 
-        network: "local", // <--- The "God Mode" Bypass
-        fullnode: "https://api.shelbynet.shelby.xyz/v1",
-        indexer: "https://api.shelbynet.shelby.xyz/v1/graphql"
-    };
-
-    // 3. Upload to Shelby
-    // We pass the settings in every possible slot to ensure it sticks.
-    const client = new ShelbyClient({ 
-        network: "local",
-        aptos: networkSettings, 
-        indexer: {
-            endpoint: "https://api.shelbynet.shelby.xyz/v1/graphql"
-        }
+    // 3. Upload to Pinata
+    console.log("🚀 Uploading to IPFS...");
+    const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.PINATA_JWT}`,
+      },
+      body: formData,
     });
 
-    console.log("📤 Sending Blob...");
-    const blobTx = await client.upload({
-        blobData: Buffer.from(encryptedData),
-        signer: owner,
-        blobName: "secret.ghost",
-        expirationMicros: Date.now() * 1000 + (24 * 60 * 60 * 1000000) 
-    });
-    console.log("✅ Blob Sent! Hash:", blobTx.hash);
+    const ipfsData = await res.json();
+    
+    if (!ipfsData.IpfsHash) {
+        throw new Error("Pinata Upload Failed");
+    }
 
-    // 4. Wait for Confirmation
-    const aptos = new Aptos(new AptosConfig({
-        network: Network.CUSTOM,
-        fullnode: networkSettings.fullnode
-    }));
-    await aptos.waitForTransaction({ transactionHash: blobTx.hash });
-    console.log("✅ Confirmed!");
+    console.log("✅ Uploaded! CID:", ipfsData.IpfsHash);
 
+    // 4. Return the Link
     const origin = new URL(request.url).origin;
-    const finalLink = `${origin}/view/${blobTx.blobId}`;
+    const finalLink = `${origin}/view/${ipfsData.IpfsHash}`;
 
     return NextResponse.json({ 
         link: finalLink, 
-        txHash: blobTx.hash 
+        txHash: null // IPFS doesn't use Tx Hash, just CID
     });
 
   } catch (error) {

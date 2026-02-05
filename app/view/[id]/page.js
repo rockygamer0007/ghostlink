@@ -1,9 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { decrypt } from '../../../utils/crypto';
-import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
-// FIX 1: Use the browser version of the SDK
-import { ShelbyClient } from "@shelby-protocol/sdk/browser"; 
 
 export default function ViewSecret({ params }) {
   const [decryptedMessage, setDecryptedMessage] = useState(null);
@@ -13,21 +10,21 @@ export default function ViewSecret({ params }) {
   useEffect(() => {
     async function fetchSecret() {
         try {
-            const blobId = params.id;
-            
-            const config = new AptosConfig({ 
-                network: Network.CUSTOM, 
-                fullnode: "https://api.shelbynet.shelby.xyz/v1" 
-            });
-            const client = new ShelbyClient(config);
+            const cid = params.id;
+            console.log("🔍 Fetching from IPFS:", cid);
 
-            console.log("🔍 Fetching Blob:", blobId);
-            const blobData = await client.download({ blobId });
+            // Fetch from a public IPFS Gateway
+            const res = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`);
             
-            const encryptedText = blobData.toString();
+            if (!res.ok) throw new Error("File not found on IPFS");
+
+            const encryptedText = await res.text();
+            
+            // Decrypt
             const jsonPayload = decrypt(encryptedText);
             const payload = JSON.parse(jsonPayload);
 
+            // Check Expiry
             if (payload.expiresAt && Date.now() > payload.expiresAt) {
                 setError("❌ This secret has expired.");
                 setLoading(false);
@@ -47,10 +44,9 @@ export default function ViewSecret({ params }) {
     if (params.id) fetchSecret();
   }, [params.id]);
 
-  // FIX 2: Helper to check if the text is actually an image
   const isImage = (text) => text && text.startsWith("data:image");
 
-  if (loading) return <div className="text-white text-center mt-20 font-mono animate-pulse">🔓 Decrypting from Blockchain...</div>;
+  if (loading) return <div className="text-white text-center mt-20 font-mono animate-pulse">🔓 Retrieving from IPFS...</div>;
   if (error) return <div className="text-red-500 text-center mt-20 font-bold text-2xl font-mono">{error}</div>;
 
   return (
@@ -68,7 +64,6 @@ export default function ViewSecret({ params }) {
         
         <h2 className="text-2xl text-white font-bold mb-4">Secret Decrypted</h2>
         
-        {/* LOGIC: Show Image OR Text */}
         <div className="bg-black p-6 rounded border border-green-500/30 text-left overflow-auto max-h-[500px] flex justify-center">
             {isImage(decryptedMessage) ? (
                 <img src={decryptedMessage} alt="Secret" className="max-w-full rounded shadow-lg" />
@@ -80,7 +75,7 @@ export default function ViewSecret({ params }) {
         </div>
 
         <p className="mt-6 text-gray-500 text-sm">
-            This data was retrieved securely from the Shelby Network.
+            This data was retrieved securely from IPFS.
         </p>
       </div>
     </div>
