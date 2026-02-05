@@ -16,11 +16,10 @@ export default function Home() {
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
-        // FIX 1: Lower limit to 3MB to account for Base64 expansion (33% increase)
-        // 3MB file becomes ~4MB payload. Vercel limit is 4.5MB.
+        // LIMIT: 3MB to allow for Base64 expansion (33%) within Vercel's 4.5MB limit
         if (selected.size > 3 * 1024 * 1024) {
-            alert("⚠️ File too large! For this showcase, max size is 3MB.");
-            e.target.value = ""; // Reset input
+            alert("⚠️ File too large! Max 3MB for this showcase.");
+            e.target.value = ""; 
             return;
         }
         setFile(selected);
@@ -65,7 +64,7 @@ export default function Home() {
 
     } catch (error) {
         console.error(error);
-        alert("Upload Failed: File might be too large for the server.");
+        alert("Upload Failed: File might be too large.");
     }
     setLoading(false);
   };
@@ -181,16 +180,16 @@ export default function Home() {
                         *Anchored on Shelby Blockchain*
                     </p>
                     
-                    {/* FIX 2: Changed /tx/ to /txn/ which is standard for Aptos/Shelby */}
+                    {/* FIX: Using Aptos Explorer with Shelby Network param */}
                     <a 
-                        href={`https://explorer.shelby.xyz/shelbynet/txn/${txHash}`}
+                        href={`https://explorer.aptoslabs.com/txn/${txHash}/userTxnOverview?network=shelbynet`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block w-full py-2 border border-purple-500/30 text-purple-300 hover:bg-purple-900/20 text-sm font-bold rounded transition text-center"
                     >
-                        🔍 View Transaction
+                        🔍 View on Aptos Explorer
                     </a>
-                    
+
                     <a 
                         href={`https://explorer.shelby.xyz/shelbynet/account/0xc63d6a5efb0080a6029403131715bd4971e1149f7cc099aac69bb0069b3ddbf5`} 
                         target="_blank"
