@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@aptos-labs/ts-sdk": "^1.27.1",
+    "@aptos-labs/ts-sdk": "^6.0.0",
     "@aptos-labs/wallet-adapter-react": "^3.2.0",
     "@mizuwallet-sdk/core": "^1.4.0",
     "@shelby-protocol/sdk": "^0.0.9",
