@@ -1,3 +1,4 @@
+// FORCE UPDATE: Fix Network Crash
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
 import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
@@ -15,8 +16,8 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Setup Connection (THE FIX IS HERE)
-    // We use the "Network" object, not a string
+    // 2. Setup Connection
+    // CRITICAL FIX: We use Network.CUSTOM (the object), NOT the string "custom"
     const config = new AptosConfig({ 
         network: Network.CUSTOM, 
         fullnode: "https://api.shelbynet.shelby.xyz/v1" 
@@ -26,7 +27,7 @@ export async function POST(request) {
     const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
     const owner = Account.fromPrivateKey({ privateKey });
 
-    console.log("🚀 Uploading Blob...");
+    console.log("🚀 Uploading Blob to Shelby...");
 
     // 3. Upload to Shelby
     const client = new ShelbyClient(config);
