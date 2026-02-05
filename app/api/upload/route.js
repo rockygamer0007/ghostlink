@@ -1,4 +1,4 @@
-// FORCE UPDATE: The "Wrapper" Fix
+// FORCE UPDATE: Add Indexer Configuration
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
 import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
@@ -16,14 +16,14 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Define the Raw Settings
+    // 2. Define the Network Settings (Now with Indexer!)
     const networkSettings = { 
         network: Network.CUSTOM, 
-        fullnode: "https://api.shelbynet.shelby.xyz/v1" 
+        fullnode: "https://api.shelbynet.shelby.xyz/v1",
+        indexer: "https://api.shelbynet.shelby.xyz/v1/graphql" // <--- THE MISSING PIECE
     };
 
     // 3. Setup Connections
-    // Standard Client (for us to wait)
     const config = new AptosConfig(networkSettings);
     const aptos = new Aptos(config); 
     
@@ -32,8 +32,7 @@ export async function POST(request) {
 
     console.log("🚀 Uploading Blob to Shelby...");
 
-    // 4. Upload to Shelby (THE FIX)
-    // We wrap the settings in an "aptos" object to trigger the bypass we found!
+    // 4. Upload to Shelby (Wrapped correctly)
     const client = new ShelbyClient({ aptos: networkSettings });
     
     const blobTx = await client.upload({
