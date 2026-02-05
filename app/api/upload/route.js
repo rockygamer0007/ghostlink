@@ -15,11 +15,11 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Setup Connection (THE FIX IS HERE)
-    // We manually force the fullnode URL instead of relying on "Network.CUSTOM" enum
+    // 2. Setup Connection (THE FIX)
+    // We use Network.CUSTOM (The Object) not the string "custom"
     const config = new AptosConfig({ 
-        fullnode: "https://api.shelbynet.shelby.xyz/v1",
-        network: "custom" // Lowercase string sometimes helps avoid enum conflicts
+        network: Network.CUSTOM, 
+        fullnode: "https://api.shelbynet.shelby.xyz/v1" 
     });
     
     const aptos = new Aptos(config); 

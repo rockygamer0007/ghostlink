@@ -4,11 +4,15 @@ import { useState } from 'react';
 export default function Home() {
   const [message, setMessage] = useState('');
   const [file, setFile] = useState(null);
-  const [duration, setDuration] = useState(0); // 0 = Burn on read
+  
+  // UI State
+  const [mode, setMode] = useState('text'); // 'text' or 'file'
+  const [timerMode, setTimerMode] = useState('burn'); // 'burn' or 'timer'
+  const [customMinutes, setCustomMinutes] = useState(10); // Default 10 mins if timer selected
+
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState(null);
   const [txHash, setTxHash] = useState(null);
-  const [mode, setMode] = useState('text'); 
 
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
@@ -40,12 +44,16 @@ export default function Home() {
             payloadContent = await convertFileToBase64(file);
         }
 
+        // Calculate Duration based on Mode
+        // If 'burn' mode, duration is 0. If 'timer' mode, use the input value.
+        const finalDuration = timerMode === 'burn' ? 0 : Number(customMinutes);
+
         const res = await fetch('/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 message: payloadContent, 
-                duration: Number(duration) // Ensure it sends a number
+                duration: finalDuration
             }),
         });
 
@@ -85,7 +93,7 @@ export default function Home() {
 
         {!link ? (
           <>
-            {/* TABS */}
+            {/* TABS (Text vs File) */}
             <div className="flex mb-6 border-b border-gray-700 pb-2">
                 <button 
                     onClick={() => setMode('text')}
@@ -123,20 +131,37 @@ export default function Home() {
                 )}
             </div>
 
-            {/* RESTORED: MINUTES INPUT BOX */}
-            <div className="mb-6 flex gap-2 items-end">
-              <div className="flex-1">
-                  <label className="block text-gray-500 text-xs mb-2 uppercase tracking-wider">Self-Destruct Timer (Minutes)</label>
-                  <input 
-                    type="number"
-                    min="0"
-                    placeholder="0 = Burn on read"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    className="w-full bg-black border border-gray-700 rounded p-3 text-white focus:border-green-500 outline-none"
-                  />
-              </div>
-              <div className="pb-3 text-gray-500 text-sm">min</div>
+            {/* DESIGN RESTORED: Red/Blue Toggle Buttons */}
+            <div className="mb-6">
+                <div className="flex bg-gray-950 rounded p-1 border border-gray-800">
+                    <button
+                        onClick={() => setTimerMode('burn')}
+                        className={`flex-1 py-2 rounded text-sm font-bold transition flex items-center justify-center gap-2
+                            ${timerMode === 'burn' ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        🔥 Burn on Read
+                    </button>
+                    <button
+                        onClick={() => setTimerMode('timer')}
+                        className={`flex-1 py-2 rounded text-sm font-bold transition flex items-center justify-center gap-2
+                            ${timerMode === 'timer' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                        ⏳ Set Timer
+                    </button>
+                </div>
+
+                {/* Conditional Input: Only shows if "Set Timer" is clicked */}
+                {timerMode === 'timer' && (
+                    <div className="mt-4 animate-fade-in flex gap-2 items-center">
+                        <input 
+                            type="number" 
+                            value={customMinutes}
+                            onChange={(e) => setCustomMinutes(e.target.value)}
+                            className="flex-1 bg-black border border-gray-700 rounded p-2 text-white text-center focus:border-blue-500 outline-none"
+                        />
+                        <span className="text-gray-500 text-sm">minutes</span>
+                    </div>
+                )}
             </div>
 
             <button 
@@ -187,7 +212,7 @@ export default function Home() {
             )}
             
             <button 
-              onClick={() => { setLink(null); setMessage(''); setFile(null); setDuration(0); }}
+              onClick={() => { setLink(null); setMessage(''); setFile(null); setTimerMode('burn'); }}
               className="mt-6 text-gray-600 hover:text-gray-400 text-sm transition"
             >
               ← Create New Secret
