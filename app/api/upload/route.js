@@ -1,4 +1,4 @@
-// FORCE UPDATE: Add Indexer Configuration
+// FORCE UPDATE: Explicit Indexer Config
 import { NextResponse } from 'next/server';
 import { encrypt } from '../../../utils/crypto';
 import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
@@ -16,14 +16,14 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Define the Network Settings (Now with Indexer!)
+    // 2. Define Network Settings
     const networkSettings = { 
         network: Network.CUSTOM, 
         fullnode: "https://api.shelbynet.shelby.xyz/v1",
-        indexer: "https://api.shelbynet.shelby.xyz/v1/graphql" // <--- THE MISSING PIECE
+        indexer: "https://api.shelbynet.shelby.xyz/v1/graphql"
     };
 
-    // 3. Setup Connections
+    // 3. Setup Aptos Connection (For waiting)
     const config = new AptosConfig(networkSettings);
     const aptos = new Aptos(config); 
     
@@ -32,8 +32,14 @@ export async function POST(request) {
 
     console.log("🚀 Uploading Blob to Shelby...");
 
-    // 4. Upload to Shelby (Wrapped correctly)
-    const client = new ShelbyClient({ aptos: networkSettings });
+    // 4. Upload to Shelby (THE FIX)
+    // We provide the "aptos" config AND the "indexer" config explicitly
+    const client = new ShelbyClient({ 
+        aptos: networkSettings,
+        indexer: {
+            endpoint: "https://api.shelbynet.shelby.xyz/v1/graphql"
+        }
+    });
     
     const blobTx = await client.upload({
         blobData: Buffer.from(encryptedData),
