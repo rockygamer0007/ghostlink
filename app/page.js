@@ -7,7 +7,7 @@ export default function Home() {
   
   // UI State
   const [mode, setMode] = useState('text'); 
-  const [customMinutes, setCustomMinutes] = useState(10); // Default 10 mins
+  const [customMinutes, setCustomMinutes] = useState(10); 
 
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState(null);
@@ -16,9 +16,10 @@ export default function Home() {
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
-        // Vercel Limit is 4.5MB. We set limit to 4MB to be safe.
-        if (selected.size > 4 * 1024 * 1024) {
-            alert("⚠️ File too large! Max 4MB for showcase.");
+        // FIX 1: Lower limit to 3MB to account for Base64 expansion (33% increase)
+        // 3MB file becomes ~4MB payload. Vercel limit is 4.5MB.
+        if (selected.size > 3 * 1024 * 1024) {
+            alert("⚠️ File too large! For this showcase, max size is 3MB.");
             e.target.value = ""; // Reset input
             return;
         }
@@ -50,7 +51,7 @@ export default function Home() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 message: payloadContent, 
-                duration: Number(customMinutes) // Always use timer
+                duration: Number(customMinutes) 
             }),
         });
 
@@ -64,7 +65,7 @@ export default function Home() {
 
     } catch (error) {
         console.error(error);
-        alert("Upload Failed: File might be too large.");
+        alert("Upload Failed: File might be too large for the server.");
     }
     setLoading(false);
   };
@@ -121,12 +122,11 @@ export default function Home() {
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
                         <span className="text-3xl mb-2">☁️</span>
-                        <span className="text-sm">{file ? file.name : "Click to Upload (Max 4MB)"}</span>
+                        <span className="text-sm">{file ? file.name : "Click to Upload (Max 3MB)"}</span>
                     </div>
                 )}
             </div>
 
-            {/* SIMPLIFIED TIMER (Removed Burn Button) */}
             <div className="mb-6">
                 <label className="block text-gray-500 text-xs mb-2 uppercase tracking-wider">Self-Destruct Timer (Minutes)</label>
                 <div className="flex gap-2 items-center">
@@ -180,15 +180,17 @@ export default function Home() {
                     <p className="text-gray-500 text-[10px] mb-2 italic">
                         *Anchored on Shelby Blockchain*
                     </p>
+                    
+                    {/* FIX 2: Changed /tx/ to /txn/ which is standard for Aptos/Shelby */}
                     <a 
-                        href={`https://explorer.shelby.xyz/shelbynet/tx/${txHash}`}
+                        href={`https://explorer.shelby.xyz/shelbynet/txn/${txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block w-full py-2 border border-purple-500/30 text-purple-300 hover:bg-purple-900/20 text-sm font-bold rounded transition text-center"
                     >
                         🔍 View Transaction
                     </a>
-                    {/* BACKUP ACCOUNT LINK */}
+                    
                     <a 
                         href={`https://explorer.shelby.xyz/shelbynet/account/0xc63d6a5efb0080a6029403131715bd4971e1149f7cc099aac69bb0069b3ddbf5`} 
                         target="_blank"
