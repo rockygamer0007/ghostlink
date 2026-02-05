@@ -1,122 +1,84 @@
-'use client';
-import { useState, useEffect, useRef } from 'react';
+"use client";
+import { useState, useEffect } from 'react';
+import { decrypt } from '../../../utils/crypto';
+import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
+import { ShelbyClient } from "@shelby-protocol/sdk"; // New Import
 
-export default function ViewPage({ params }) {
-  const [status, setStatus] = useState('Loading'); 
-  const [secretContent, setSecretContent] = useState('');
-  const [expirationMsg, setExpirationMsg] = useState('');
-  
-  // Prevent double-fetching in React Strict Mode
-  const hasFetched = useRef(false);
+export default function ViewSecret({ params }) {
+  const [decryptedMessage, setDecryptedMessage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    async function revealSecret() {
-      if (hasFetched.current) return;
-      hasFetched.current = true;
+    async function fetchSecret() {
+        try {
+            // 1. Get the Blob ID from the URL
+            const blobId = params.id;
+            
+            // 2. Connect to Shelby
+            const config = new AptosConfig({ 
+                network: Network.CUSTOM, 
+                fullnode: "https://api.shelbynet.shelby.xyz/v1" 
+            });
+            const client = new ShelbyClient(config);
 
-      const resolvedParams = await params;
-      const encryptedId = decodeURIComponent(resolvedParams.id);
+            console.log("🔍 Fetching Blob:", blobId);
 
-      try {
-        // Ask the Server to decrypt and validate
-        const res = await fetch('/api/reveal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: encryptedId })
-        });
-        
-        const data = await res.json();
-        setStatus(data.status);
+            // 3. Download the Encrypted Data
+            const blobData = await client.download({ blobId });
+            
+            // Convert Buffer back to String
+            const encryptedText = blobData.toString();
 
-        if (data.status === 'Decrypted') {
-            setSecretContent(data.text);
-            if (data.expiresAt) {
-                const mins = Math.ceil((data.expiresAt - Date.now()) / 60000);
-                setExpirationMsg(`Destructs in ~${mins} minutes`);
-            } else {
-                setExpirationMsg('Standard Encryption');
+            // 4. Decrypt Locally
+            const jsonPayload = decrypt(encryptedText);
+            const payload = JSON.parse(jsonPayload);
+
+            // 5. Check Expiry/Burn Logic
+            if (payload.expiresAt && Date.now() > payload.expiresAt) {
+                setError("❌ This secret has expired.");
+                setLoading(false);
+                return;
             }
-        } 
-        else if (data.status === 'One-Time') {
-            setSecretContent(data.text);
-            setExpirationMsg('This message has been destroyed. Do not reload.');
-        }
-        else if (data.status === 'Expired') {
-            setExpirationMsg('Time limit exceeded.');
-        }
-        else if (data.status === 'Burnt') {
-            setExpirationMsg('This one-time link has already been viewed.');
-        }
 
-      } catch (e) {
-        setStatus('Corrupted');
-      }
+            setDecryptedMessage(payload.text);
+            setLoading(false);
+
+        } catch (err) {
+            console.error(err);
+            setError("❌ Secret not found or invalid.");
+            setLoading(false);
+        }
     }
 
-    revealSecret();
-  }, [params]);
+    if (params.id) fetchSecret();
+  }, [params.id]);
+
+  if (loading) return <div className="text-white text-center mt-20">🔓 Decrypting from Blockchain...</div>;
+  if (error) return <div className="text-red-500 text-center mt-20 font-bold text-2xl">{error}</div>;
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
-      <div className="max-w-2xl w-full text-center">
+    <div className="min-h-screen bg-black text-green-400 flex flex-col items-center justify-center p-4">
+      <h1 className="text-4xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+        GhostLink
+      </h1>
+
+      <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 shadow-2xl max-w-2xl w-full text-center">
+        <div className="mb-6 flex justify-center">
+            <div className="p-4 bg-green-900/30 rounded-full">
+                <span className="text-4xl">🔓</span>
+            </div>
+        </div>
         
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent mb-4">
-          GhostLink
-        </h1>
-
-        {/* SHELBY BADGE */}
-        <div className="flex justify-center mb-8">
-            <span className="text-[10px] font-mono text-gray-500 border border-gray-800 rounded px-2 py-1 uppercase">
-                SECURED BY SHELBY
-            </span>
+        <h2 className="text-2xl text-white font-bold mb-4">Secret Decrypted</h2>
+        
+        <div className="bg-black p-6 rounded border border-green-500/30 text-left overflow-auto max-h-96 whitespace-pre-wrap">
+            {decryptedMessage}
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 shadow-2xl relative overflow-hidden transition-all duration-500">
-            
-            {/* DESTROYED STATE */}
-            {(status === 'Expired' || status === 'Burnt') && (
-                <div className="py-8 animate-pulse">
-                    <div className="text-6xl mb-4">💥</div>
-                    <h2 className="text-2xl font-bold text-red-500 mb-2">Note Destroyed</h2>
-                    <p className="text-gray-500">{expirationMsg}</p>
-                </div>
-            )}
-
-            {/* LOADING / ERROR STATE */}
-            {(status === 'Loading') && <div className="text-gray-500 animate-pulse">Unlocking secure payload...</div>}
-            {(status === 'Corrupted') && <div className="text-red-500">❌ Invalid or Broken Link</div>}
-
-            {/* SUCCESS STATE */}
-            {(status === 'Decrypted' || status === 'One-Time') && (
-                <>
-                    <div className={`absolute top-0 left-0 w-full h-1 ${status === 'One-Time' ? 'bg-orange-500' : 'bg-green-500'}`}></div>
-                    
-                    <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
-                        <span className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${status === 'One-Time' ? 'text-orange-500' : 'text-green-500'}`}>
-                            <span className={`w-2 h-2 rounded-full animate-pulse ${status === 'One-Time' ? 'bg-orange-500' : 'bg-green-500'}`}></span>
-                            {status === 'One-Time' ? 'Self-Destructing Message' : 'Secure Message'}
-                        </span>
-                        <span className="text-xs font-mono text-gray-400">
-                           {expirationMsg}
-                        </span>
-                    </div>
-                    
-                    <div className="font-mono text-3xl text-white break-words leading-relaxed p-4">
-                        {secretContent}
-                    </div>
-
-                    <div className="mt-8 text-xs text-gray-600 flex justify-center gap-4">
-                        <span>AES-256 Encrypted</span>
-                        <span>•</span>
-                        <span>Server Verified</span>
-                    </div>
-                </>
-            )}
-        </div>
-
-        <a href="/" className="mt-8 inline-block text-gray-500 hover:text-white transition-colors">
-          ← Create New Secret
-        </a>
+        <p className="mt-6 text-gray-500 text-sm">
+            This message was retrieved securely from the Shelby Network.
+        </p>
       </div>
     </div>
   );
