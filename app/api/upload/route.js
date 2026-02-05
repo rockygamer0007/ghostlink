@@ -15,13 +15,14 @@ export async function POST(request) {
     };
     const encryptedData = encrypt(JSON.stringify(payload));
 
-    // 2. Setup Connection
+    // 2. Setup Connection (THE FIX IS HERE)
+    // We manually force the fullnode URL instead of relying on "Network.CUSTOM" enum
     const config = new AptosConfig({ 
-        network: Network.CUSTOM, 
-        fullnode: "https://api.shelbynet.shelby.xyz/v1" 
+        fullnode: "https://api.shelbynet.shelby.xyz/v1",
+        network: "custom" // Lowercase string sometimes helps avoid enum conflicts
     });
-    const aptos = new Aptos(config); // Standard client for waiting
     
+    const aptos = new Aptos(config); 
     const privateKey = new Ed25519PrivateKey(process.env.SHELBY_PRIVATE_KEY);
     const owner = Account.fromPrivateKey({ privateKey });
 
@@ -38,7 +39,7 @@ export async function POST(request) {
 
     console.log("⏳ Waiting for confirmation... Tx:", blobTx.hash);
 
-    // --- THE FIX: Wait for the blockchain to finish ---
+    // Wait for the blockchain to finish
     await aptos.waitForTransaction({ transactionHash: blobTx.hash });
     console.log("✅ Confirmed!");
 

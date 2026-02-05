@@ -1,20 +1,18 @@
 "use client";
 import { useState } from 'react';
-import Link from 'next/link';
 
 export default function Home() {
   const [message, setMessage] = useState('');
   const [file, setFile] = useState(null);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(0); // 0 = Burn on read
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState(null);
   const [txHash, setTxHash] = useState(null);
-  const [mode, setMode] = useState('text'); // 'text' or 'file'
+  const [mode, setMode] = useState('text'); 
 
   const handleFileChange = (e) => {
     const selected = e.target.files[0];
     if (selected) {
-        // Limit file size to 5MB for now
         if (selected.size > 5 * 1024 * 1024) {
             alert("File is too big! Max 5MB.");
             return;
@@ -38,8 +36,6 @@ export default function Home() {
 
     try {
         let payloadContent = message;
-
-        // If File Mode, convert file to text (Base64)
         if (mode === 'file' && file) {
             payloadContent = await convertFileToBase64(file);
         }
@@ -48,8 +44,8 @@ export default function Home() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                message: payloadContent, // We send the file as a text string!
-                duration 
+                message: payloadContent, 
+                duration: Number(duration) // Ensure it sends a number
             }),
         });
 
@@ -76,7 +72,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-green-400 flex flex-col items-center justify-center p-4 font-mono">
       
-      {/* HEADER */}
       <h1 className="text-6xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-pulse">
         GhostLink
       </h1>
@@ -84,10 +79,8 @@ export default function Home() {
         ● Powered by Shelby
       </div>
 
-      {/* MAIN CARD */}
-      <div className="bg-gray-900 p-8 rounded-xl border border-gray-800 shadow-2xl max-w-md w-full relative overflow-hidden group">
+      <div className="bg-gray-900 p-8 rounded-xl border border-gray-800 shadow-2xl max-w-md w-full relative overflow-hidden">
         
-        {/* Glow Effect */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-purple-500 to-pink-500"></div>
 
         {!link ? (
@@ -130,22 +123,22 @@ export default function Home() {
                 )}
             </div>
 
-            {/* OPTIONS */}
-            <div className="mb-6">
-              <label className="block text-gray-500 text-xs mb-2 uppercase tracking-wider">Self-Destruct Timer</label>
-              <select 
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                className="w-full bg-black border border-gray-700 rounded p-2 text-white focus:border-green-500 outline-none"
-              >
-                <option value={0}>🔥 Burn immediately after reading</option>
-                <option value={10}>⏳ 10 Minutes</option>
-                <option value={60}>🕐 1 Hour</option>
-                <option value={1440}>📅 1 Day</option>
-              </select>
+            {/* RESTORED: MINUTES INPUT BOX */}
+            <div className="mb-6 flex gap-2 items-end">
+              <div className="flex-1">
+                  <label className="block text-gray-500 text-xs mb-2 uppercase tracking-wider">Self-Destruct Timer (Minutes)</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    placeholder="0 = Burn on read"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    className="w-full bg-black border border-gray-700 rounded p-3 text-white focus:border-green-500 outline-none"
+                  />
+              </div>
+              <div className="pb-3 text-gray-500 text-sm">min</div>
             </div>
 
-            {/* ACTION BUTTON */}
             <button 
               onClick={createGhostLink}
               disabled={loading || (!message && !file)}
@@ -156,7 +149,7 @@ export default function Home() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  Encrypting & Uploading...
+                  Encrypting...
                 </span>
               ) : "Create GhostLink"}
             </button>
@@ -187,14 +180,14 @@ export default function Home() {
                     href={`https://explorer.shelby.xyz/shelbynet/tx/${txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full py-3 border border-purple-500/50 text-purple-300 hover:bg-purple-900/20 font-bold rounded transition text-center flex items-center justify-center gap-2"
+                    className="block w-full py-3 border border-purple-500/50 text-purple-300 hover:bg-purple-900/20 font-bold rounded transition text-center"
                 >
                     🔍 View on Shelby Explorer
                 </a>
             )}
             
             <button 
-              onClick={() => { setLink(null); setMessage(''); setFile(null); }}
+              onClick={() => { setLink(null); setMessage(''); setFile(null); setDuration(0); }}
               className="mt-6 text-gray-600 hover:text-gray-400 text-sm transition"
             >
               ← Create New Secret
